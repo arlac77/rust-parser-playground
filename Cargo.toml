@@ -1,0 +1,9 @@
+[package]
+name = "parsetest"
+version = "0.1.0"
+
+[dependencies]
+
+[[bin]]
+    name = "parsetest"
+    path = "main.rs"
