@@ -1,59 +1,17 @@
 use std::iter::*;
-use std::slice::*;
-
-#[derive(Debug)]
-pub enum Expression {
-    Num(i64),
-    Binary(Box<Expression>, Token, Box<Expression>),
-}
-
-pub struct Parser<'a> {
-    tokens: Peekable<Iter<'a, Token>>,
-}
-
-impl<'a> Parser<'a> {
-    fn new(tokens: Iter<'a, Token>) -> Self {
-        Parser {
-            tokens: tokens.peekable(),
-        }
-    }
-
-    fn expression(&mut self, rbp: u32) -> Result<Expression, String> {
-        let mut left = (self.parse_nud())?;
-        while self.next_binds_tighter_than(rbp) {
-            left = (self.parse_led(left))?;
-        }
-        Ok(left)
-    }
-
-    fn next_binds_tighter_than(&mut self, rbp: u32) -> bool {
-        self.tokens.peek().map_or(false, |t| t.lbp() > rbp)
-    }
-
-    fn parse_nud(&mut self) -> Result<Expression, String> {
-        self.tokens
-            .next()
-            .map_or(Err("incomplete".to_string()), |t| t.nud())
-    }
-
-    fn parse_led(&mut self, expr: Expression) -> Result<Expression, String> {
-        self.tokens
-            .next()
-            .map_or(Err("incomplete".to_string()), |t| t.led(self, expr))
-    }
-}
 
 #[derive(Clone, Debug)]
 pub enum Token {
+    Unknown,
     Add,
     Substract,
     Multiply,
     Divide,
-    Num(i64),
+    Num(isize),
 }
 
 impl Token {
-    fn lbp(&self) -> u32 {
+    fn lbp(&self) -> usize {
         match *self {
             Token::Add => 10,
             Token::Substract => 10,
@@ -70,10 +28,10 @@ impl Token {
         }
     }
 
-    fn led(&self, parser: &mut Parser, lhs: Expression) -> Result<Expression, String> {
+    fn led<Iter: Iterator<Item = Token>>(&self, parser: &mut Parser<Iter>, lhs: Expression) -> Result<Expression, String> {
         match *self {
             Token::Add | Token::Substract | Token::Multiply | Token::Divide => {
-                let rhs = (parser.expression(self.lbp()))?;
+                let rhs = parser.expression(self.lbp())?;
                 Ok(Expression::Binary(
                     Box::new(lhs),
                     self.clone(),
@@ -86,19 +44,77 @@ impl Token {
     }
 }
 
-static TOKENS: [Token; 5] = [
-    Token::Num(1),
-    Token::Add,
-    Token::Num(2),
-    Token::Multiply,
-    Token::Num(5),
-];
-
-fn tokens() -> std::slice::Iter<'static, Token> {
-    TOKENS.iter()
+pub struct TokenIter<'a> {
+    chars: std::str::Chars<'a>
 }
 
+impl<'a> Iterator for TokenIter<'a> {
+    type Item = Token;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        self.chars.next().map(|c| match c {
+            '1' => Token::Num(1),
+            '2' => Token::Num(2),
+            '+' => Token::Add,
+            '-' => Token::Substract,
+            '*' => Token::Multiply,
+            '/' => Token::Divide,
+            _ => Token::Unknown    
+        })
+    }
+}
+
+fn  tokens(str: & str) -> TokenIter {
+    TokenIter { chars: str.chars() }
+}
+
+#[derive(Debug)]
+pub enum Expression {
+    Num(isize),
+    Binary(Box<Expression>, Token, Box<Expression>),
+}
+
+
+pub struct Parser<Iter: Iterator<Item = Token>> {
+    tokens: Peekable<Iter>,
+}
+
+impl<Iter: Iterator<Item = Token>> Parser<Iter> {
+    fn new(tokens: Iter) -> Self {
+        Parser {
+            tokens: tokens.peekable()
+        }
+    }
+
+    fn expression(&mut self, rbp: usize) -> Result<Expression, String> {
+        let mut left = self.parse_nud()?;
+        while self.next_binds_tighter_than(rbp) {
+            left = (self.parse_led(left))?;
+        }
+        Ok(left)
+    }
+
+    fn next_binds_tighter_than(&mut self, rbp: usize) -> bool {
+       self.tokens.peek().map_or(false, |t| t.lbp() > rbp)
+    }
+
+    fn parse_nud(&mut self) -> Result<Expression, String> {
+        self.tokens
+            .next()
+            .map_or(Err("incomplete".to_string()), |t| t.nud())
+    }
+
+    fn parse_led(&mut self, expr: Expression) -> Result<Expression, String> {
+        self.tokens
+            .next()
+            .map_or(Err("incomplete".to_string()), |t| t.led(self, expr))
+    }
+}
+
+
 fn main() {
-    let mut parser = Parser::new(tokens());
+    let tokens = tokens("2+2");
+    let mut parser = Parser::new(tokens);
+
     println!("parsed: {:?}", parser.expression(0));
 }
