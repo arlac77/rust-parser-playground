@@ -1,8 +1,10 @@
 use std::iter::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Unknown,
+    Open,
+    Close,
     Add,
     Substract,
     Multiply,
@@ -13,6 +15,7 @@ pub enum Token {
 impl Token {
     fn lbp(&self) -> usize {
         match *self {
+            Token::Open => 80,
             Token::Add => 10,
             Token::Substract => 10,
             Token::Multiply => 20,
@@ -53,12 +56,13 @@ impl<'a> Iterator for TokenIter<'a> {
     
     fn next(&mut self) -> Option<Self::Item> {
         self.chars.next().map(|c| match c {
-            '1' => Token::Num(1),
-            '2' => Token::Num(2),
+            '0'..='9' => Token::Num(c as isize - '0' as isize),
             '+' => Token::Add,
             '-' => Token::Substract,
             '*' => Token::Multiply,
             '/' => Token::Divide,
+            '(' => Token::Open,
+            ')' => Token::Close,
             _ => Token::Unknown    
         })
     }
@@ -89,7 +93,7 @@ impl<Iter: Iterator<Item = Token>> Parser<Iter> {
     fn expression(&mut self, rbp: usize) -> Result<Expression, String> {
         let mut left = self.parse_nud()?;
         while self.next_binds_tighter_than(rbp) {
-            left = (self.parse_led(left))?;
+            left = self.parse_led(left)?;
         }
         Ok(left)
     }
@@ -113,7 +117,7 @@ impl<Iter: Iterator<Item = Token>> Parser<Iter> {
 
 
 fn main() {
-    let tokens = tokens("2+2");
+    let tokens = tokens("2+7*3");
     let mut parser = Parser::new(tokens);
 
     println!("parsed: {:?}", parser.expression(0));
