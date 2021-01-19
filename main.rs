@@ -31,7 +31,11 @@ impl Token {
         }
     }
 
-    fn led<Iter: Iterator<Item = Token>>(&self, parser: &mut Parser<Iter>, lhs: Expression) -> Result<Expression, String> {
+    fn led<Iter: Iterator<Item = Token>>(
+        &self,
+        parser: &mut Parser<Iter>,
+        lhs: Expression,
+    ) -> Result<Expression, String> {
         match *self {
             Token::Add | Token::Substract | Token::Multiply | Token::Divide => {
                 let rhs = parser.expression(self.lbp())?;
@@ -48,28 +52,55 @@ impl Token {
 }
 
 pub struct TokenIter<'a> {
-    chars: std::str::Chars<'a>
+    chars: Peekable<std::str::Chars<'a>>
+}
+
+impl TokenIter<'_> {
+    pub fn new(str: &str) -> TokenIter {
+        let result: TokenIter = TokenIter  {
+            chars: str.chars().peekable()
+        };
+        result
+    }
+
+    fn peeking_take_while(&mut self,
+        mut predicate: impl FnMut(char) -> bool,
+    ) -> String {
+        let mut s = String::new();
+        while let Some(&ch) = self.chars.peek() {
+            if predicate(ch) {
+                self.chars.next(); // consume
+                s.push(ch);
+            } else {
+                break;
+            }
+        }
+        s
+    }
+    
+    fn number(&mut self) -> isize {
+        let str = self.peeking_take_while(|c| c <= '9' && c >= '0');
+        return str.parse::<isize>().unwrap();
+    }
 }
 
 impl<'a> Iterator for TokenIter<'a> {
     type Item = Token;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        self.chars.next().map(|c| match c {
-            '0'..='9' => Token::Num(c as isize - '0' as isize),
-            '+' => Token::Add,
-            '-' => Token::Substract,
-            '*' => Token::Multiply,
-            '/' => Token::Divide,
-            '(' => Token::Open,
-            ')' => Token::Close,
-            _ => Token::Unknown    
-        })
-    }
-}
 
-fn  tokens(str: & str) -> TokenIter {
-    TokenIter { chars: str.chars() }
+    fn next(&mut self) -> Option<Self::Item> {
+        let oc = self.chars.peek();
+        if let Some(c) = oc {
+            match c {
+                '0'..='9' => Some(Token::Num(self.number())),
+                '+' => { self.chars.next(); return Some(Token::Add)},
+                '-' => { self.chars.next(); return Some(Token::Substract)},
+                '*' => { self.chars.next(); return Some(Token::Multiply)},
+                _ => return None
+            }
+        } else {
+            return None;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -78,7 +109,6 @@ pub enum Expression {
     Binary(Box<Expression>, Token, Box<Expression>),
 }
 
-
 pub struct Parser<Iter: Iterator<Item = Token>> {
     tokens: Peekable<Iter>,
 }
@@ -86,7 +116,7 @@ pub struct Parser<Iter: Iterator<Item = Token>> {
 impl<Iter: Iterator<Item = Token>> Parser<Iter> {
     fn new(tokens: Iter) -> Self {
         Parser {
-            tokens: tokens.peekable()
+            tokens: tokens.peekable(),
         }
     }
 
@@ -99,7 +129,7 @@ impl<Iter: Iterator<Item = Token>> Parser<Iter> {
     }
 
     fn next_binds_tighter_than(&mut self, rbp: usize) -> bool {
-       self.tokens.peek().map_or(false, |t| t.lbp() > rbp)
+        self.tokens.peek().map_or(false, |t| t.lbp() > rbp)
     }
 
     fn parse_nud(&mut self) -> Result<Expression, String> {
@@ -115,9 +145,8 @@ impl<Iter: Iterator<Item = Token>> Parser<Iter> {
     }
 }
 
-
 fn main() {
-    let tokens = tokens("2+7*3");
+    let tokens = TokenIter::new("123+7*3");
     let mut parser = Parser::new(tokens);
 
     println!("parsed: {:?}", parser.expression(0));
