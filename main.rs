@@ -52,20 +52,18 @@ impl Token {
 }
 
 pub struct TokenIter<'a> {
-    chars: Peekable<std::str::Chars<'a>>
+    chars: Peekable<std::str::Chars<'a>>,
 }
 
 impl TokenIter<'_> {
     pub fn new(str: &str) -> TokenIter {
-        let result: TokenIter = TokenIter  {
-            chars: str.chars().peekable()
+        let result: TokenIter = TokenIter {
+            chars: str.chars().peekable(),
         };
         result
     }
 
-    fn peeking_take_while(&mut self,
-        mut predicate: impl FnMut(char) -> bool,
-    ) -> String {
+    fn peeking_take_while(&mut self, mut predicate: impl FnMut(char) -> bool) -> String {
         let mut s = String::new();
         while let Some(&ch) = self.chars.peek() {
             if predicate(ch) {
@@ -77,7 +75,6 @@ impl TokenIter<'_> {
         }
         s
     }
-    
     fn number(&mut self) -> isize {
         let str = self.peeking_take_while(|c| c <= '9' && c >= '0');
         return str.parse::<isize>().unwrap();
@@ -88,17 +85,29 @@ impl<'a> Iterator for TokenIter<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let oc = self.chars.peek();
-        if let Some(c) = oc {
-            match c {
-                '0'..='9' => Some(Token::Num(self.number())),
-                '+' => { self.chars.next(); return Some(Token::Add)},
-                '-' => { self.chars.next(); return Some(Token::Substract)},
-                '*' => { self.chars.next(); return Some(Token::Multiply)},
-                _ => return None
+        loop {
+            let oc = self.chars.peek();
+            if let Some(c) = oc {
+                match c {
+                    '0'..='9' => return Some(Token::Num(self.number())),
+                    '+' => {
+                        self.chars.next();
+                        return Some(Token::Add);
+                    }
+                    '-' => {
+                        self.chars.next();
+                        return Some(Token::Substract);
+                    }
+                    '*' => {
+                        self.chars.next();
+                        return Some(Token::Multiply);
+                    }
+                    ' ' => { self.chars.next(); },
+                    _ => return None,
+                }
+            } else {
+                return None;
             }
-        } else {
-            return None;
         }
     }
 }
@@ -146,7 +155,7 @@ impl<Iter: Iterator<Item = Token>> Parser<Iter> {
 }
 
 fn main() {
-    let tokens = TokenIter::new("123+7*3");
+    let tokens = TokenIter::new("123 + 7*3");
     let mut parser = Parser::new(tokens);
 
     println!("parsed: {:?}", parser.expression(0));
