@@ -102,6 +102,11 @@ impl<'a> Iterator for TokenIter<'a> {
                         self.chars.next();
                         return Some(Token::Multiply);
                     }
+                    '/' => {
+                        self.chars.next();
+                        return Some(Token::Divide);
+                    }
+
                     ' ' => { self.chars.next(); },
                     _ => return None,
                 }
