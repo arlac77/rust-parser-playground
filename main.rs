@@ -46,7 +46,7 @@ impl Token {
                 ))
             }
 
-            _ => Err("expecing operator".to_string()),
+            _ => Err("expecting operator".to_string()),
         }
     }
 }
@@ -67,7 +67,7 @@ impl TokenIter<'_> {
         let mut s = String::new();
         while let Some(&ch) = self.chars.peek() {
             if predicate(ch) {
-                self.chars.next(); // consume
+                self.chars.next();
                 s.push(ch);
             } else {
                 break;
